@@ -1,6 +1,6 @@
-from core.tools.book_search_tool import book_search_tool
-from core.tools.sql_check_book_status_tool import sql_check_book_status_tool
-from core.tools.pdf_reader_tool import pdf_reader_tool
+from core.library_assistant_toolbox.book_search_tool import book_search_tool
+from core.library_assistant_toolbox.sql_check_book_status_tool import sql_check_book_status_tool
+from core.library_assistant_toolbox.pdf_reader_tool import pdf_reader_tool
 
 # Tools cho Library Agent
 library_tools = [

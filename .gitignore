@@ -1,0 +1,29 @@
+# 1. Environment variables (Bảo mật thông tin nhạy cảm)
+.env
+.env.*
+!.env.example
+
+# 2. IDE / Editor (Cấu hình riêng của máy cá nhân)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 3. Python artifacts (File rác phát sinh khi chạy code)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# 4. Virtual Environments (Thư viện cài đặt, dung lượng lớn)
+venv/
+.venv/
+env/
+ENV/
+
+# 5. OS files (File hệ thống)
+.DS_Store
+Thumbs.db
