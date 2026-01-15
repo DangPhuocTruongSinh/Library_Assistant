@@ -1,0 +1,24 @@
+langchain==0.3.7
+langchain-community==0.3.7
+langchain-core
+langchain-google-genai
+langchain-openai
+langchain-text-splitters
+langgraph
+langgraph-checkpoint
+langgraph-prebuilt
+langgraph-sdk
+langsmith
+langchain_docling
+langchain_huggingface
+chromadb
+langchain-chroma
+pydantic
+
+# Các gói còn lại của bạn
+python-dotenv
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+pyodbc

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thư Viện AI Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/style.css?v=2.0" />
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path
+                d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+              />
+              <path d="M8 7h8M8 11h6" />
+            </svg>
+          </div>
+          <span>Thư Viện AI</span>
+        </div>
+
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-tab="library">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span>Tìm Sách</span>
+          </button>
+          <button class="nav-tab" data-tab="pdf">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            <span>Đọc PDF</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>Server Online</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Library Tab -->
+        <section id="library-tab" class="tab-content active">
+          <div class="chat-container">
+            <div class="chat-header">
+              <h1>📚 Tìm Kiếm Sách</h1>
+              <p>
+                Hỏi tôi về sách trong thư viện - tìm kiếm, kiểm tra tình trạng,
+                gợi ý sách...
+              </p>
+            </div>
+
+            <div class="chat-messages" id="library-messages">
+              <div class="message assistant">
+                <div class="message-avatar">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"
+                    />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </div>
+                <div class="message-content">
+                  <p>
+                    Xin chào! Tôi là trợ lý thư viện AI. Tôi có thể giúp bạn:
+                  </p>
+                  <ul>
+                    <li>🔍 Tìm kiếm sách theo tên, tác giả, thể loại</li>
+                    <li>📊 Kiểm tra tình trạng sách (còn hay hết)</li>
+                    <li>💡 Gợi ý sách theo sở thích</li>
+                  </ul>
+                  <p>Hãy hỏi tôi bất cứ điều gì!</p>
+                </div>
+              </div>
+            </div>
+
+            <form class="chat-input-form" id="library-form">
+              <div class="input-wrapper">
+                <input
+                  type="text"
+                  id="library-input"
+                  placeholder="Tìm sách về Python, AI..."
+                  autocomplete="off"
+                />
+                <button type="submit" class="send-btn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- PDF Tab -->
+        <section id="pdf-tab" class="tab-content">
+          <div class="split-container">
+            <!-- Left: PDF Viewer -->
+            <div class="pdf-viewer-container" id="pdf-viewer-container">
+              <div class="pdf-toolbar">
+                <div class="pdf-controls">
+                  <button id="prev-page" title="Trang trước">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <span id="page-num">1</span> / <span id="page-count">--</span>
+                  <button id="next-page" title="Trang sau">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </div>
+                <div class="pdf-zoom">
+                   <button id="zoom-out" title="Thu nhỏ">-</button>
+                   <span id="zoom-level">100%</span>
+                   <button id="zoom-in" title="Phóng to">+</button>
+                </div>
+              </div>
+              <div class="pdf-canvas-wrapper">
+                 <div id="pdf-placeholder">
+                    <div class="upload-zone-small" id="upload-zone">
+                        <div class="upload-content">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <p>Upload PDF để xem</p>
+                            
+                            <div class="upload-options">
+                                <button type="button" class="upload-btn" id="upload-btn">Chọn file</button>
+                                
+                                <div class="divider"><span>hoặc</span></div>
+                                
+                                <div class="url-input-group">
+                                    <input type="text" id="url-input" placeholder="Dán link PDF/OneDrive..." />
+                                    <button type="button" id="load-url-btn" class="icon-btn" title="Load URL">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M9 18l6-6-6-6" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <input type="file" id="pdf-file" accept=".pdf" style="position: absolute; opacity: 0; pointer-events: none" />
+                        </div>
+                         <div class="upload-progress" id="upload-progress">
+                            <div class="progress-bar"></div>
+                            <span class="progress-text">Đang xử lý...</span>
+                        </div>
+                    </div>
+                 </div>
+                 <canvas id="the-canvas"></canvas>
+                 <!-- Highlight Layer -->
+                 <div id="highlight-layer"></div>
+              </div>
+            </div>
+
+            <!-- Right: Chat -->
+            <div class="pdf-chat-container">
+              <div class="chat-header-small">
+                <h2>💬 Hỏi đáp với PDF</h2>
+                <div class="pdf-badge" id="pdf-info" style="display: none">
+                    <span id="pdf-filename">document.pdf</span>
+                    <span class="pdf-chunks" id="pdf-chunks">0 chunks</span>
+                    <button class="remove-pdf" id="remove-pdf" title="Đóng PDF">×</button>
+                </div>
+              </div>
+
+              <div class="chat-messages" id="pdf-messages">
+                <div class="message assistant">
+                  <div class="message-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  </div>
+                  <div class="message-content">
+                    <p>Hãy upload PDF để bắt đầu đọc và hỏi đáp!</p>
+                  </div>
+                </div>
+              </div>
+
+              <form class="chat-input-form" id="pdf-form">
+                <div class="input-wrapper">
+                  <input type="text" id="pdf-input" placeholder="Hỏi về nội dung..." autocomplete="off" disabled />
+                  <button type="submit" class="send-btn" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js?v=2.0"></script>
+  </body>
+</html>
