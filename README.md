@@ -1,40 +1,96 @@
-# Chatbot for Library
+# Library Assistant
 
-## Introduction 
-- This is a library assistant chatbot project. The chatbot can interact with users to advise on books, look up information, and support library users. The goal of the project is to automate basic customer care processes, enhance user experience, and reduce the workload for librarians.
-- This is a product researched and developed by the R&D team at `AICI GLOBAL`.
+## Tong quan
+Du an cung cap API chatbot thu vien va bo doc PDF. He thong gom:
+- Chatbot thu vien: tim sach, kiem tra tinh trang muon, goi y sach.
+- PDF Reader: upload PDF, index noi dung, hoi dap theo tai lieu.
+- UI test nhanh tren web tai `/` va tai lieu API tai `/docs`.
 
-## Architecture
-The system is designed with a Multi-agent architecture, where each agent specializes in a specific task and is coordinated by a supervisor agent.
+## Tinh nang chinh
+- Hoi dap ve sach trong thu vien thong qua `/api/library/chat`.
+- Upload va hoi dap tren PDF thong qua `/api/pdf/upload`, `/api/pdf/chat`.
+- Thong ke PDF dang duoc load qua `/api/pdf/stats`.
+- API quan tri (CRUD) co san trong `api/admin/router.py` (hien dang comment trong `main.py`).
 
-## Used Technology
-- **Backend Framework**: `FastAPI`
-- **LLM Framework**: `LangChain`, `LangGraph`
-- **Large Language Models (LLM)**: `OpenAI (GPT-4, GPT-3.5)`
-- **Database**: `Supabase (PostgreSQL)`
+## Kien truc
+He thong duoc thiet ke theo mo hinh multi-agent. Moi agent phu trach mot nhiem vu:
+- `LibraryAgent`: ReAct agent cho truy van va kiem tra sach.
+- `PDFReaderAgent`: Structured RAG cho tai lieu PDF, tu dong chon chien luoc tim kiem.
 
-## Installation Guide
-1. **Clone repository to your machine:**
-```
-git clone <your-repository-url>
-cd Chatbot_ThuVien
-```
-2. **Create and activate a virtual environment:**
+## Cong nghe su dung
+- Backend: `FastAPI`
+- LLM/Agent: `LangChain`, `LangGraph`
+- LLM: `Google Gemini` (qua `langchain_google_genai`)
+- Vector store: `Chroma Cloud`
+- Database: `SQL Server` (qua `pyodbc`)
+
+## Cau truc thu muc
+- `api/`: router cho chatbot va admin
+- `core/agents/`: agent cho thu vien va PDF
+- `core/library_assistant_toolbox/`: tool truy van sach, kiem tra tinh trang
+- `core/ingestion/`: pipeline doc PDF
+- `database/`: ket noi DB va cau hinh LLM
+- `static/`: giao dien web test
+- `data/pdfs/`: noi luu file PDF upload
+
+## Cai dat
+1. **Tao moi truong ao va cai dependency**
 ```
 python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-```
-
-3. **Install necessary dependencies:**
-```
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. **Configure environment variables:**
-Create a `.env` file in the project's root directory and fill in the necessary information.
+2. **Cau hinh bien moi truong**
+Tao file `.env` tai thu muc goc voi cac bien toi thieu:
+```
+GEMINI_API_KEY=...
+MODEL_EMBEDDING=...
+MODEL_PDF_READER=...
+MODEL_LIBRARY_ASSISTANT=...
 
-5. **Run the application:**
-Use uvicorn to start the FastAPI server.
+DIALECT=mssql
+DB_SERVER=...
+DB_PORT=1433
+DB_USER=...
+DB_PASS=...
+DB_NAME=...
+
+CLOUD_NAME=...
+CLOUD_KEY=...
+CLOUD_SECRET=...
 ```
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+
+3. **Chay server**
 ```
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+## Docker cho SQL Server
+File `docker-compose.yml` co san de khoi tao SQL Server:
+```
+docker compose up -d
+```
+Luu y: can cai `ODBC Driver 18 for SQL Server` de ket noi tu app.
+
+## API nhanh
+- `POST /api/library/chat`
+```
+{
+  "message": "Tim sach ve Python",
+  "user_id": "user123"
+}
+```
+- `POST /api/pdf/upload` (multipart form-data, field `file`)
+- `POST /api/pdf/chat`
+```
+{
+  "filename": "document.pdf",
+  "message": "Tom tat noi dung chinh",
+  "user_id": "user123"
+}
+```
+- `GET /api/pdf/stats`
+
+## Bat admin API (tuy chon)
+Mo comment dong `app.include_router(admin_router)` trong `main.py`, sau do khoi dong lai server.
