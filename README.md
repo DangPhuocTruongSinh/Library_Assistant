@@ -1,96 +1,157 @@
-# Library Assistant
+# Library Assistant (Chatbot Thư Viện)
 
-## Tong quan
-Du an cung cap API chatbot thu vien va bo doc PDF. He thong gom:
-- Chatbot thu vien: tim sach, kiem tra tinh trang muon, goi y sach.
-- PDF Reader: upload PDF, index noi dung, hoi dap theo tai lieu.
-- UI test nhanh tren web tai `/` va tai lieu API tai `/docs`.
+Backend **FastAPI** cho ứng dụng trợ lý thư viện: hỏi đáp tìm sách trong thư viện và hỏi đáp nội dung **PDF** (RAG). Repo có sẵn **Web UI** trong `static/` để test nhanh (đường dẫn `/`).
 
-## Tinh nang chinh
-- Hoi dap ve sach trong thu vien thong qua `/api/library/chat`.
-- Upload va hoi dap tren PDF thong qua `/api/pdf/upload`, `/api/pdf/chat`.
-- Thong ke PDF dang duoc load qua `/api/pdf/stats`.
-- API quan tri (CRUD) co san trong `api/admin/router.py` (hien dang comment trong `main.py`).
+## Tính năng chính
 
-## Kien truc
-He thong duoc thiet ke theo mo hinh multi-agent. Moi agent phu trach mot nhiem vu:
-- `LibraryAgent`: ReAct agent cho truy van va kiem tra sach.
-- `PDFReaderAgent`: Structured RAG cho tai lieu PDF, tu dong chon chien luoc tim kiem.
+- **Chatbot thư viện** (`/api/library/chat`)
+  - Tìm sách theo từ khóa (tên sách/chủ đề/nội dung).
+  - Pipeline tìm kiếm **Hybrid**: SQL Server **Full-Text Search** + **Semantic Search** (Chroma) + **Rerank**.
+  - Kiểm tra tình trạng sách còn/hết theo **ISBN**.
+- **Đọc & hỏi đáp PDF (RAG)** (`/api/pdf/upload`, `/api/pdf/chat`)
+  - Upload PDF, parse bằng **Docling** (có OCR, trích xuất bảng), chia chunk + index vào **Chroma**.
+  - Hỏi đáp dựa trên context lấy từ vector search (có mở rộng “cùng trang”).
+  - Xem thống kê collection hiện tại: `/api/pdf/stats`.
+- **Web UI test** (`/`)
+  - Tab “Tìm Sách” gọi API library chat.
+  - Tab “Đọc PDF” có viewer (PDF.js) + khung chat hỏi đáp.
 
-## Cong nghe su dung
-- Backend: `FastAPI`
-- LLM/Agent: `LangChain`, `LangGraph`
-- LLM: `Google Gemini` (qua `langchain_google_genai`)
-- Vector store: `Chroma Cloud`
-- Database: `SQL Server` (qua `pyodbc`)
+## Kiến trúc & thành phần
 
-## Cau truc thu muc
-- `api/`: router cho chatbot va admin
-- `core/agents/`: agent cho thu vien va PDF
-- `core/library_assistant_toolbox/`: tool truy van sach, kiem tra tinh trang
-- `core/ingestion/`: pipeline doc PDF
-- `database/`: ket noi DB va cau hinh LLM
-- `static/`: giao dien web test
-- `data/pdfs/`: noi luu file PDF upload
+- **`LibraryAgent`** (`core/agents/library_agent.py`)
+  - Dùng LangChain ReAct agent và 2 tool:
+    - `book_search_tool`: tìm sách hybrid + rerank.
+    - `sql_check_book_status`: kiểm tra còn/hết theo ISBN.
+- **`PDFReaderAgent`** (`core/agents/pdf_reader_agent.py`)
+  - Structured RAG: phân tích ý định câu hỏi (summary/section/general) → chọn chiến lược tìm context → trả lời theo schema JSON.
+- **Vector store**
+  - Dùng **Chroma Cloud** qua `chroma_client` (xem `database/connection.py`).
+- **Database**
+  - SQL Server (pyodbc + SQLAlchemy). Schema có các bảng tiêu biểu: `DAUSACH`, `SACH`, `DOCGIA`, `PHIEUMUON`, `CT_PHIEUMUON`, `TACGIA`, `THELOAI`, ...
 
-## Cai dat
-1. **Tao moi truong ao va cai dependency**
-```
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+## Yêu cầu
 
-2. **Cau hinh bien moi truong**
-Tao file `.env` tai thu muc goc voi cac bien toi thieu:
-```
+- **Python**: khuyến nghị 3.10+
+- **SQL Server**: có thể chạy local hoặc Docker
+- **ODBC Driver 18 for SQL Server** (phù hợp chuỗi kết nối đang dùng)
+- **API key LLM**: hiện code đang dùng Google Gemini qua `langchain-google-genai`
+
+## Cấu hình môi trường (.env)
+
+Tạo file `.env` ở thư mục gốc project:
+
+```env
+# Gemini / Embedding
 GEMINI_API_KEY=...
 MODEL_EMBEDDING=...
 MODEL_PDF_READER=...
 MODEL_LIBRARY_ASSISTANT=...
 
-DIALECT=mssql
-DB_SERVER=...
+# Database (SQL Server)
+DIALECT=mssql+pyodbc
+DB_SERVER=localhost
 DB_PORT=1433
-DB_USER=...
+DB_USER=sa
 DB_PASS=...
-DB_NAME=...
+DB_NAME=QLTV
 
+# Cloudinary (nếu dùng lưu ảnh)
 CLOUD_NAME=...
 CLOUD_KEY=...
 CLOUD_SECRET=...
 ```
 
-3. **Chay server**
-```
+## Chạy project (Local)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## Docker cho SQL Server
-File `docker-compose.yml` co san de khoi tao SQL Server:
-```
+- **Swagger**: `/docs`
+- **Redoc**: `/redoc`
+- **Web UI test**: `/`
+- **Health check**: `/health`
+- **API info**: `/api`
+
+## Chạy SQL Server bằng Docker (tuỳ chọn)
+
+Repo có `docker-compose.yml` để khởi tạo container SQL Server.
+
+```bash
 docker compose up -d
 ```
-Luu y: can cai `ODBC Driver 18 for SQL Server` de ket noi tu app.
 
-## API nhanh
+Lưu ý: `docker-compose.yml` hiện chỉ mount file `init-db.sql` vào container tại `/tmp/init-db.sql`. Bạn cần chạy script thủ công trong container (ví dụ dùng `sqlcmd`) để tạo schema và dữ liệu mẫu.
+
+## API Endpoints (đang bật)
+
+### Chatbot thư viện
+
 - `POST /api/library/chat`
+
+Body:
+
+```json
+{ "message": "Tìm sách về Python", "user_id": "user123" }
 ```
+
+Response:
+
+```json
+{ "answer": "…", "status": "success" }
+```
+
+### Upload PDF
+
+- `POST /api/pdf/upload` (multipart form-data, field `file`)
+
+Response:
+
+```json
 {
-  "message": "Tim sach ve Python",
-  "user_id": "user123"
+  "status": "success",
+  "filename": "document.pdf",
+  "message": "…",
+  "total_chunks": 123
 }
 ```
-- `POST /api/pdf/upload` (multipart form-data, field `file`)
+
+### Chat PDF
+
 - `POST /api/pdf/chat`
-```
+
+Body:
+
+```json
 {
   "filename": "document.pdf",
-  "message": "Tom tat noi dung chinh",
+  "message": "Tóm tắt nội dung chính",
   "user_id": "user123"
 }
 ```
+
+### PDF Stats
+
 - `GET /api/pdf/stats`
 
-## Bat admin API (tuy chon)
-Mo comment dong `app.include_router(admin_router)` trong `main.py`, sau do khoi dong lai server.
+## Admin API (đang có code nhưng chưa bật)
+
+Router admin nằm ở `api/admin/router.py` và có các nhóm endpoint:
+
+- `GET/POST/PUT/DELETE /api/admin/books`
+- `GET/POST/PUT/DELETE /api/admin/copies`
+- `GET/POST/PUT/DELETE /api/admin/readers`
+- `GET/POST/PUT /api/admin/loans` (trả sách qua endpoint return)
+- `GET/POST/PUT/DELETE /api/admin/authors`
+- `GET /api/admin/stats/overview`
+
+Để bật, bạn cần **uncomment** phần import + `include_router` trong `main.py`.
+
+## Lưu ý quan trọng
+
+- **Endpoint load PDF từ URL**: Frontend (`static/app.js`) có gọi `POST /api/pdf/load-from-url`, nhưng endpoint này hiện đang **comment** trong `api/chatbot/router.py` → sẽ không dùng được nếu không bật lại.
+- **Bảo mật**: Không commit API key/secret thật vào repo. Các thông tin kết nối DB, Gemini key, Cloudinary key nên đặt trong `.env`.
+- **Dữ liệu PDF**: file upload được lưu trong `data/pdfs/` và được serve qua `/pdfs/*`.
