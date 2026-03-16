@@ -9,6 +9,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions, AcceleratorOptions, AcceleratorDevice
@@ -139,13 +140,12 @@ class PDFIngestionPipeline:
                 page_no = prov_entry.page_no
 
             # Gom nhóm: Nếu item hiện tại cùng loại 'text', cùng trang và cùng heading với item trước đó
-            # thì ta nối nội dung lại thay vì tạo chunk mới.
+            # thì ta nối nội dung lại thành một Document lớn sau đó chia nhỏ thành các chunk.
             if (langchain_docs and 
                 item_type == "text" and 
                 langchain_docs[-1].metadata["type"] == "text" and
                 langchain_docs[-1].metadata["page"] == page_no and
-                langchain_docs[-1].metadata["parent_heading"] == current_heading and
-                len(langchain_docs[-1].page_content) < 1000): # Giới hạn size mỗi chunk khoảng 1000 ký tự
+                langchain_docs[-1].metadata["parent_heading"] == current_heading):
                 
                 # Cập nhật nội dung
                 langchain_docs[-1].page_content += "\n" + content
@@ -165,8 +165,19 @@ class PDFIngestionPipeline:
                 }
                 langchain_docs.append(Document(page_content=content, metadata=metadata))
 
-        logger.info(f"Đã trích xuất và tối ưu thành {len(langchain_docs)} chunks dữ liệu từ {path.name}.")
-        return langchain_docs
+        logger.info(f"Đã gom nhóm thành {len(langchain_docs)} documents theo ngữ cảnh. Đang tiến hành chia nhỏ (chunking)...")
+        
+        # 3. Áp dụng RecursiveCharacterTextSplitter để chia nhỏ các Document quá dài
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", ".", " ", ""]
+        )
+        
+        final_docs = text_splitter.split_documents(langchain_docs)
+        
+        logger.info(f"Đã trích xuất và tối ưu thành {len(final_docs)} chunks dữ liệu từ {path.name}.")
+        return final_docs
 
 # Helper function để test nhanh
 if __name__ == "__main__":

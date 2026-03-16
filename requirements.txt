@@ -1,24 +1,45 @@
+# --- Core API ---
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+
+# --- Data / DB ---
+sqlalchemy
+pyodbc
+
+# --- Validation ---
+pydantic
+typing-extensions
+
+# --- Logging (Rich console) ---
+rich
+
+# --- LangChain / LangGraph ---
 langchain==0.3.7
 langchain-community==0.3.7
 langchain-core
-langchain-google-genai
-langchain-openai
 langchain-text-splitters
 langgraph
 langgraph-checkpoint
 langgraph-prebuilt
 langgraph-sdk
 langsmith
-langchain_docling
-langchain_huggingface
+
+# --- LLM providers ---
+langchain-google-genai
+langchain-openai
+google-generativeai
+
+# --- Vector DB / RAG ---
 chromadb
 langchain-chroma
-pydantic
 
-# Các gói còn lại của bạn
-python-dotenv
-fastapi
-uvicorn
-python-multipart
-sqlalchemy
-pyodbc
+# --- PDF Ingestion (Docling) ---
+docling
+
+# --- Reranker / HuggingFace Cross-Encoder ---
+sentence-transformers
+torch
+
+

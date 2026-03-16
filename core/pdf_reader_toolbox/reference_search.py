@@ -114,7 +114,6 @@ class ReferenceRetrievalSystem:
                         return f"❌ Batch {current_batch} ERROR: {e}"
 
         # Thực thi multi-threading
-        # Giảm xuống 2 workers để tránh đánh nhau quá mạnh dẫn đến Rate Limit
         failed_results = []
         with ThreadPoolExecutor(max_workers=2) as executor:
             future_to_batch = {executor.submit(process_batch, i, batch): i for i, batch in enumerate(batches)}

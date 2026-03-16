@@ -16,7 +16,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 
 from core.agents.library_agent import LibraryAgent
 from core.agents.pdf_reader_agent import PDFReaderAgent
-from core.utils.url_downloader import download_pdf_from_url, extract_filename_from_url
+# from core.utils.url_downloader import download_pdf_from_url, extract_filename_from_url
 from schemas.request import ChatRequest, PDFChatRequest, PDFUrlRequest
 from schemas.response import ChatResponse, PDFUploadResponse, PDFChatResponse
 
