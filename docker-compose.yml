@@ -2,7 +2,7 @@ version: "3.8"
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: chatbot_thuvien_sql_server
+    container_name: library_assistant_sql_server
     ports:
       - "1433:1433"
     environment:

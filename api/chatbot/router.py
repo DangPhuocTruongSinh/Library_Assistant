@@ -15,8 +15,10 @@ from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
 from core.agents.library_agent import LibraryAgent
+from core.agents.library_conversation_manager import LibraryConversationManager
 from core.agents.pdf_reader_agent import PDFReaderAgent
 # from core.utils.url_downloader import download_pdf_from_url, extract_filename_from_url
+from database.connection import library_assistant_llm
 from schemas.request import ChatRequest, PDFChatRequest, PDFUrlRequest
 from schemas.response import ChatResponse, PDFUploadResponse, PDFChatResponse
 
@@ -33,7 +35,11 @@ router = APIRouter(prefix="/api", tags=["Chatbot"])
 # =============================================================================
 # USER CHAT HISTORY
 # =============================================================================
-USER_CHAT_HISTORY = {}
+
+# Structure per key:
+#   "lib_{user_id}" → {"turns": [(role, content), ...], "short_term": str, "long_term": str}
+#   "pdf_{user_id}" → [(role, content), ...]  (unchanged — PDF flow is separate)
+USER_CHAT_HISTORY: dict = {}
 
 # Thư mục lưu PDF
 UPLOAD_DIR = Path("data/pdfs")
@@ -46,12 +52,13 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 _library_agent: Optional[LibraryAgent] = None
 _pdf_agent: Optional[PDFReaderAgent] = None
+_conv_manager: Optional[LibraryConversationManager] = None
 
 
 def get_library_agent() -> LibraryAgent:
     """
     Lấy hoặc tạo LibraryAgent singleton.
-    
+
     Returns:
         LibraryAgent: Instance duy nhất của LibraryAgent.
     """
@@ -60,6 +67,22 @@ def get_library_agent() -> LibraryAgent:
         _library_agent = LibraryAgent()
         logger.info("✅ LibraryAgent đã được khởi tạo.")
     return _library_agent
+
+
+def get_conv_manager() -> LibraryConversationManager:
+    """
+    Lấy hoặc tạo LibraryConversationManager singleton.
+
+    Shares the same LLM instance as LibraryAgent to avoid redundant connections.
+
+    Returns:
+        LibraryConversationManager: Instance duy nhất.
+    """
+    global _conv_manager
+    if _conv_manager is None:
+        _conv_manager = LibraryConversationManager(llm=library_assistant_llm)
+        logger.info("✅ LibraryConversationManager đã được khởi tạo.")
+    return _conv_manager
 
 
 def get_pdf_agent() -> PDFReaderAgent:
@@ -84,21 +107,22 @@ def get_pdf_agent() -> PDFReaderAgent:
 async def library_chat(request: ChatRequest):
     """
     Hỏi đáp về sách trong thư viện.
-    
-    Chức năng:
-    - Tìm kiếm sách theo tên, chủ đề, nội dung
-    - Kiểm tra tình trạng sách (còn/hết)
-    - Gợi ý sách theo yêu cầu
-    
+
+    Pipeline xử lý:
+    1. Validate query — lọc câu hỏi không liên quan, gợi ý làm rõ nếu mơ hồ.
+    2. Gọi LibraryAgent với từ khóa đã chuẩn hóa.
+    3. Sinh 4 câu hỏi gợi ý tiếp theo dựa trên câu trả lời.
+    4. Cập nhật lịch sử; tóm tắt nếu quá dài.
+
     Args:
         request (ChatRequest): Chứa message và user_id (optional).
-        
+
     Returns:
-        ChatResponse: Câu trả lời từ AI.
-        
+        ChatResponse: Câu trả lời từ AI kèm danh sách câu hỏi gợi ý.
+
     Raises:
         HTTPException: 500 nếu có lỗi xử lý.
-        
+
     Example:
         POST /api/library/chat
         {
@@ -108,41 +132,84 @@ async def library_chat(request: ChatRequest):
     """
     try:
         agent = get_library_agent()
-        
-        # 1. Lấy user_id (nếu không có thì dùng default hoặc session_id)
+        conv = get_conv_manager()
+
         user_id = request.user_id or "anonymous"
-        
-        # KEY CHANGE: Separate history key for Library Assistant
         history_key = f"lib_{user_id}"
-        
-        # 2. Lấy lịch sử cũ của user này
-        history = USER_CHAT_HISTORY.get(history_key, [])
-        
-        # LOGGING REQUEST
-        logger.info(f"👤 User Question ({user_id}): {request.message}")
-        logger.info(f"📜 Current Chat History ({len(history)} turns): {history}")
-        
-        # 3. Truyền lịch sử vào hàm ask
-        answer = agent.ask(request.message, chat_history=history)
-        
-        # LOGGING RESPONSE
-        logger.info(f"🤖 Agent Response: {answer}")
-        
-        # 4. Cập nhật lịch sử mới sau khi có câu trả lời
-        # Giới hạn nhớ 10 turn gần nhất để tránh prompt quá dài (Context Window Limit)
-        if len(history) > 20: 
-            history = history[-20:]
-            
-        history.append(("Human", request.message))
-        history.append(("AI", answer))
-        USER_CHAT_HISTORY[history_key] = history
-        logger.info(f"📝 Lịch sử hội thoại đã được cập nhật: {history}")
-        
-        return ChatResponse(
-            answer=answer,
-            status="success"
-        )
-        
+
+        # Retrieve or initialise per-user history record.
+        history_record = USER_CHAT_HISTORY.get(history_key, {
+            "turns": [],
+            "short_term": "",
+            "long_term": "NONE",
+        })
+        turns: list = history_record["turns"]
+        short_term: str = history_record.get("short_term", "")
+
+        logger.info(f"👤 User ({user_id}): {request.message}")
+        logger.info(f"📜 History turns: {len(turns)}, summary present: {bool(short_term)}")
+
+        # -----------------------------------------------------------------
+        # STEP 1 — Validate query
+        # -----------------------------------------------------------------
+        validation = conv.validate_query(request.message, extra_context=short_term)
+        logger.info(f"🔍 Validation: {validation}")
+
+        if validation["type"] == "IRRELEVANT":
+            reason = validation["content"]
+            answer = (
+                f"Dạ, câu hỏi này nằm ngoài phạm vi hỗ trợ của em ạ. {reason} "
+                "Anh/chị có thể hỏi em về sách, tình trạng mượn/trả, hoặc gợi ý sách nhé."
+            )
+            logger.info(f"🚫 Query irrelevant — skipping agent.")
+            return ChatResponse(answer=answer, suggestions=[], status="success")
+
+        if validation["type"] == "SUGGESTION":
+            # Query is ambiguous — surface clarification options to the user.
+            clarifications = [q.strip() for q in validation["content"].split("|") if q.strip()]
+            suggestion_lines = "\n".join(f"- {q}" for q in clarifications)
+            answer = (
+                "Dạ em chưa rõ ý của anh/chị lắm ạ. "
+                f"Anh/chị có thể thử hỏi theo một trong các hướng sau:\n{suggestion_lines}"
+            )
+            logger.info(f"❓ Query ambiguous — returning clarification suggestions.")
+            return ChatResponse(answer=answer, suggestions=clarifications, status="success")
+
+        # VALID — use normalized keywords as the effective query for the agent.
+        effective_query = validation["content"] or request.message
+
+        # -----------------------------------------------------------------
+        # STEP 2 — Call agent
+        # -----------------------------------------------------------------
+        answer = agent.ask(effective_query, chat_history=turns, summary=short_term)
+        logger.info(f"🤖 Agent response: {answer}")
+
+        # -----------------------------------------------------------------
+        # STEP 3 — Generate follow-up suggestions
+        # -----------------------------------------------------------------
+        suggestions = conv.generate_suggestions(answer=answer, user_query=request.message)
+        logger.info(f"💡 Suggestions: {suggestions}")
+
+        # -----------------------------------------------------------------
+        # STEP 4 — Update history and summarize if needed
+        # -----------------------------------------------------------------
+        turns.append(("Human", request.message))
+        turns.append(("AI", answer))
+
+        if conv.should_summarize(turns):
+            logger.info("🗜️ History too long — summarizing...")
+            summary_result = conv.summarize_history(turns)
+            history_record["short_term"] = summary_result["short_term"]
+            history_record["long_term"] = summary_result["long_term"]
+            # Keep only the most recent turns after compression.
+            turns = turns[-conv.KEEP_RECENT_TURNS:]
+            logger.info(f"📝 Summarized. short_term: {history_record['short_term']}")
+
+        history_record["turns"] = turns
+        USER_CHAT_HISTORY[history_key] = history_record
+
+        return ChatResponse(answer=answer, suggestions=suggestions, status="success")
+
     except Exception as e:
         logger.error(f"❌ Lỗi library_chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))

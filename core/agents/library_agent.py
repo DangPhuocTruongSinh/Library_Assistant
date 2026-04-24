@@ -95,22 +95,29 @@ class LibraryAgent:
         
         logger.info("✅ LibraryAgent đã khởi tạo.")
     
-    def ask(self, question: str, chat_history: list = None) -> str:
+    def ask(self, question: str, chat_history: list = None, summary: str = "") -> str:
         """
         Hỏi agent về sách trong thư viện.
-        
+
         Args:
-            question: Câu hỏi của user
-            
+            question: Câu hỏi của user (đã được chuẩn hóa bởi ConversationManager).
+            chat_history: Danh sách các turn gần nhất dạng [(role, content), ...].
+            summary: Tóm tắt short-term từ ConversationManager (nếu lịch sử đã được nén).
+                     Sẽ được ghép trước các turn gần nhất để cung cấp ngữ cảnh đầy đủ.
+
         Returns:
-            Câu trả lời
+            Câu trả lời từ agent.
         """
         if chat_history is None:
             chat_history = []
-        
-        # Format list history thành chuỗi text để đưa vào prompt
-        # Ví dụ input: [("human", "A"), ("ai", "B")] -> "Human: A\nAI: B"
-        history_str = "\n".join([f"{role}: {content}" for role, content in chat_history])
+
+        # Build history string: prepend summary (if any) before recent turns.
+        recent_turns = "\n".join(f"{role}: {content}" for role, content in chat_history)
+        if summary:
+            history_str = f"[TÓM TẮT HỘI THOẠI TRƯỚC]: {summary}\n\n[CÁC LƯỢT GẦN ĐÂY]:\n{recent_turns}"
+        else:
+            history_str = recent_turns
+
         logger.info(f"📝 Lịch sử hội thoại: {history_str}")
         try:
             result = self.executor.invoke({

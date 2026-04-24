@@ -162,7 +162,8 @@ def _get_reranker_model():
     global _reranker_model
     if _reranker_model is not None:
         return _reranker_model
-    _reranker_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
+    # bge-reranker-v2-m3 is multilingual and significantly stronger than bge-reranker-base.
+    _reranker_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-v2-m3")
     return _reranker_model
 
 def _get_retrieval_chain():

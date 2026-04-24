@@ -4,6 +4,7 @@ from typing import List
 class ChatResponse(BaseModel):
     """Response body cho endpoint chat."""
     answer: str = Field(..., description="Câu trả lời từ AI")
+    suggestions: List[str] = Field(default_factory=list, description="Các câu hỏi gợi ý tiếp theo")
     status: str = Field(default="success")
 
 

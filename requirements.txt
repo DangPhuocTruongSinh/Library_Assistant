@@ -27,9 +27,9 @@ langgraph-sdk
 langsmith
 
 # --- LLM providers ---
-langchain-google-genai
-langchain-openai
-google-generativeai
+# langchain-google-genai
+# google-generativeai
+langchain-ollama
 
 # --- Vector DB / RAG ---
 chromadb
